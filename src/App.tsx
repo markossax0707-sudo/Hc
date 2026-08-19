@@ -15,6 +15,8 @@ import {
   ShieldCheck,
   Stethoscope,
   Info,
+  CalendarDays,
+  History,
 } from 'lucide-react';
 import { Patient, PatientFilters, AppSettings } from './types';
 import { PatientDB, SettingsService } from './services/storage';
@@ -23,6 +25,7 @@ import { TopAppBar } from './components/TopAppBar';
 import { PatientCard } from './components/PatientCard';
 import { PatientFormScreen } from './components/PatientFormScreen';
 import { PatientDetailView } from './components/PatientDetailView';
+import { HistoryByDateView } from './components/HistoryByDateView';
 import { FilterBar } from './components/FilterBar';
 import { SettingsModal } from './components/SettingsModal';
 import { ContextMenu } from './components/ContextMenu';
@@ -32,6 +35,7 @@ import { AndroidFrame } from './components/AndroidFrame';
 export default function App() {
   // Navigation / View state
   const [currentView, setCurrentView] = useState<'list' | 'form' | 'detail'>('list');
+  const [listSubView, setListSubView] = useState<'by_date' | 'cards'>('by_date');
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
 
@@ -291,89 +295,150 @@ export default function App() {
           onToggleViewMode={handleToggleViewMode}
         />
 
-        <div className="pt-4 pb-8">
-          {/* VIEW 1: PATIENTS LIST */}
+        <div className="pt-3 pb-8">
+          {/* VIEW 1: PATIENTS LIST & HISTORY BY DATE */}
           {currentView === 'list' && (
             <div className="space-y-4 animate-fadeIn">
-              {/* Date Filter Bar */}
-              {showFilterBar && (
-                <FilterBar
-                  filters={filters}
-                  onFilterChange={(newFilters) => setFilters(newFilters)}
-                  onResetFilters={() =>
-                    setFilters({ fechaInicio: '', fechaFin: '', searchQuery: '' })
-                  }
-                  totalFiltered={filteredPatients.length}
-                  totalAll={patients.length}
+              {/* Navigation Segmented Switcher */}
+              <div className="bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200/80 flex items-center gap-1.5">
+                <button
+                  id="tab-history-by-date"
+                  onClick={() => setListSubView('by_date')}
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                    listSubView === 'by_date'
+                      ? 'bg-[#1A56A0] text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <CalendarDays className="w-4 h-4" />
+                  <span>Historias por Fecha</span>
+                  <span
+                    className={`text-[10px] px-2 py-0.2 rounded-full font-extrabold ${
+                      listSubView === 'by_date'
+                        ? 'bg-white/20 text-white'
+                        : 'bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    {patients.length}
+                  </span>
+                </button>
+
+                <button
+                  id="tab-cards-view"
+                  onClick={() => setListSubView('cards')}
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                    listSubView === 'cards'
+                      ? 'bg-[#1A56A0] text-white shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Fichas Clínicas</span>
+                  {activeFilterCount > 0 && (
+                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                  )}
+                </button>
+              </div>
+
+              {/* TAB CONTENT A: HISTORIAS POR FECHA */}
+              {listSubView === 'by_date' && (
+                <HistoryByDateView
+                  patients={patients}
+                  onSelectPatient={handleSelectPatient}
+                  onEditPatient={handleEditPatient}
+                  onDeletePatient={handleDeletePatient}
+                  onExportPdf={handleExportPdf}
+                  onNewPatient={handleOpenNewPatient}
+                  settings={settings}
+                  searchQuery={filters.searchQuery}
+                  onSearchChange={(q) => setFilters({ ...filters, searchQuery: q })}
                 />
               )}
 
-              {/* Status Banner */}
-              <div className="flex items-center justify-between px-1 text-xs text-slate-500 font-semibold">
-                <div className="flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-blue-600" />
-                  <span>
-                    Pacientes Registrados ({filteredPatients.length} de {patients.length})
-                  </span>
-                </div>
-                <span className="text-[11px] text-slate-400 font-normal hidden sm:inline">
-                  Mantén presionado para opciones rápidas
-                </span>
-              </div>
-
-              {/* Loading State */}
-              {isLoading ? (
-                <div className="py-16 text-center text-slate-500">
-                  <RefreshCw className="w-8 h-8 animate-spin mx-auto text-blue-600 mb-2" />
-                  <p className="text-xs font-semibold">Cargando base de datos Room...</p>
-                </div>
-              ) : filteredPatients.length === 0 ? (
-                /* Empty state */
-                <div className="bg-white rounded-3xl p-8 text-center border border-slate-200 shadow-sm my-6">
-                  <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3">
-                    <Stethoscope className="w-7 h-7" />
-                  </div>
-                  <h3 className="font-bold text-slate-800 text-base">
-                    No se encontraron pacientes
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed">
-                    {filters.fechaInicio || filters.fechaFin || filters.searchQuery
-                      ? 'No hay registros que coincidan con el rango de fechas o búsqueda especificado.'
-                      : 'Comienza añadiendo un nuevo paciente con el botón flotante (+).'}
-                  </p>
-                  <div className="mt-4 flex items-center justify-center gap-2">
-                    {(filters.fechaInicio || filters.fechaFin || filters.searchQuery) && (
-                      <button
-                        onClick={() =>
-                          setFilters({ fechaInicio: '', fechaFin: '', searchQuery: '' })
-                        }
-                        className="text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl transition-colors"
-                      >
-                        Limpiar Filtros
-                      </button>
-                    )}
-                    <button
-                      onClick={handleOpenNewPatient}
-                      className="text-xs font-bold text-white bg-[#1A56A0] hover:bg-blue-700 px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Nuevo Paciente</span>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                /* Patient Cards Grid */
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                  {filteredPatients.map((patient) => (
-                    <PatientCard
-                      key={patient.id}
-                      patient={patient}
-                      onSelect={handleSelectPatient}
-                      onExportPdf={handleExportPdf}
-                      onContextMenu={handleOpenContextMenu}
-                      onEdit={handleEditPatient}
+              {/* TAB CONTENT B: FICHAS DE PACIENTES */}
+              {listSubView === 'cards' && (
+                <div className="space-y-4 animate-fadeIn">
+                  {/* Date Filter Bar */}
+                  {showFilterBar && (
+                    <FilterBar
+                      filters={filters}
+                      onFilterChange={(newFilters) => setFilters(newFilters)}
+                      onResetFilters={() =>
+                        setFilters({ fechaInicio: '', fechaFin: '', searchQuery: '' })
+                      }
+                      totalFiltered={filteredPatients.length}
+                      totalAll={patients.length}
                     />
-                  ))}
+                  )}
+
+                  {/* Status Banner */}
+                  <div className="flex items-center justify-between px-1 text-xs text-slate-500 font-semibold">
+                    <div className="flex items-center gap-1.5">
+                      <Users className="w-4 h-4 text-blue-600" />
+                      <span>
+                        Pacientes Registrados ({filteredPatients.length} de {patients.length})
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-slate-400 font-normal hidden sm:inline">
+                      Mantén presionado para opciones rápidas
+                    </span>
+                  </div>
+
+                  {/* Loading State */}
+                  {isLoading ? (
+                    <div className="py-16 text-center text-slate-500">
+                      <RefreshCw className="w-8 h-8 animate-spin mx-auto text-blue-600 mb-2" />
+                      <p className="text-xs font-semibold">Cargando base de datos Room...</p>
+                    </div>
+                  ) : filteredPatients.length === 0 ? (
+                    /* Empty state */
+                    <div className="bg-white rounded-3xl p-8 text-center border border-slate-200 shadow-sm my-6">
+                      <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3">
+                        <Stethoscope className="w-7 h-7" />
+                      </div>
+                      <h3 className="font-bold text-slate-800 text-base">
+                        No se encontraron pacientes
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed">
+                        {filters.fechaInicio || filters.fechaFin || filters.searchQuery
+                          ? 'No hay registros que coincidan con el rango de fechas o búsqueda especificado.'
+                          : 'Comienza añadiendo un nuevo paciente con el botón flotante (+).'}
+                      </p>
+                      <div className="mt-4 flex items-center justify-center gap-2">
+                        {(filters.fechaInicio || filters.fechaFin || filters.searchQuery) && (
+                          <button
+                            onClick={() =>
+                              setFilters({ fechaInicio: '', fechaFin: '', searchQuery: '' })
+                            }
+                            className="text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl transition-colors"
+                          >
+                            Limpiar Filtros
+                          </button>
+                        )}
+                        <button
+                          onClick={handleOpenNewPatient}
+                          className="text-xs font-bold text-white bg-[#1A56A0] hover:bg-blue-700 px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+                        >
+                          <Plus className="w-4 h-4" />
+                          <span>Nuevo Paciente</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* Patient Cards Grid */
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      {filteredPatients.map((patient) => (
+                        <PatientCard
+                          key={patient.id}
+                          patient={patient}
+                          onSelect={handleSelectPatient}
+                          onExportPdf={handleExportPdf}
+                          onContextMenu={handleOpenContextMenu}
+                          onEdit={handleEditPatient}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
