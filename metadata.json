@@ -1,0 +1,6 @@
+{
+  "name": "Gestión de Pacientes e Informes Médicos IA",
+  "description": "Aplicación médica móvil para registro de pacientes, análisis clínico con IA (Gemini), diagnóstico CIE-10 y generación de informes PDF profesionales.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
